@@ -8,10 +8,9 @@ class Prediction {
     double t;
   public:
     Prediction(double rock, double paper, double scissors) {
-      //Beating probabilities, given opponent-throw probabilities
-      p[1] = rock;
-      p[2] = paper;
-      p[0] = scissors;
+      p[0] = rock;
+      p[1] = paper;
+      p[2] = scissors;
       t = rock + paper + scissors;
     }
     void shift(int n) {
@@ -46,25 +45,15 @@ class Prediction {
     }
 
     int generate() {
-      double point = ((double) rand() / (RAND_MAX)) * t;
-      int r;
-      if (point < p[0]) {
-        r = 0;
-      }
-      else if (point < p[0] + p[1]) {
-        r = 1;
-      }
-      else {
-        r = 2;
-      }
-      return r;
+      if (p[2] - p[1] > p[0] - p[2] && p[2] - p[1] > p[1] - p[0]) return 0;
+      else if (p[0] - p[2] > p[1] - p[0]) return 1;
+      else return 2;
     }
 };
 
 class Predictor {
-  private:
-    int mod;
   public:
+    int mod;
     Predictor () {
       mod = 0;
     }
@@ -83,7 +72,7 @@ class Predictor {
 //Picks according to how often moves are thrown
 class UnigramCounter : public Predictor {
   private:
-    int counts[3];
+    double counts[3];
   public:
     UnigramCounter() {
       counts[0] = 0;
@@ -95,7 +84,7 @@ class UnigramCounter : public Predictor {
       counts[n % 3] += 1;
     }
     Prediction raw_predict() {
-      ////cout << "Unigrams has " << counts[0] << ',' << counts[1] << ',' << counts[2] << endl;
+      cout << "Unigrams has " << counts[0] << ',' << counts[1] << ',' << counts[2] << '(' << mod << ')' << endl;
       Prediction r (counts[0], counts[1], counts[2]);
       return r;
     }
@@ -127,7 +116,7 @@ class MarkovCounter : public Predictor {
       last = n;
     }
     Prediction raw_predict() {
-      //cout << "For " << last << ", Markov has " << counts[last][0] << "," << counts[last][1] << "," << counts[last][2] << endl;
+      cout << "For " << last << ", Markov has " << counts[last][0] << "," << counts[last][1] << "," << counts[last][2] << '(' << mod << ')' << endl;
       Prediction r (counts[last][0], counts[last][1], counts[last][2]);
       return r;
     }
@@ -136,7 +125,7 @@ class MarkovCounter : public Predictor {
 //Picks according to a Markov model on tuples of throws (mine,theirs)
 class DualMarkovCounter : public Predictor {
   private:
-    int counts[9][3];
+    double counts[9][3];
     int last;
   public:
     DualMarkovCounter() {
@@ -161,7 +150,7 @@ class DualMarkovCounter : public Predictor {
     }
 
     Prediction raw_predict() {
-      //cout << "For " << last << ", Dual-Markov has " << counts[last][0] << "," << counts[last][1] << "," << counts[last][2] << endl;
+      cout << "For " << last << ", Dual-Markov has " << counts[last][0] << "," << counts[last][1] << "," << counts[last][2] << '(' << mod << ')' << endl;
       Prediction r (counts[last][0], counts[last][1], counts[last][2]);
       return r;
     }
@@ -216,18 +205,12 @@ class StaticPatternMatcher : public Predictor {
       int last = history[0];
       int matched[] = {0,0,0};
       for (int i = 1; i < len; i += 1) {
-        for (int x = 0; history[i + x] == history[x]; x += 1) {
-          if (x > max_match) {
-            max_match = x;
-          //  for (int z = 0; z < 3; z += 1) matched[z] = 0;
-          }
-          //if (x == max_match) {
-            matched[last] += 1;  
-          //}
+        for (int x = 0; history[i + x] == history[x] && x < 25; x += 1) {
+          matched[last] += 1;  
         }
         last = history[i];
       }
-      //cout << "Long pattern matcher has last throws at " << history[0] << ' ' << history[1] << ' ' << history[2] << " ...so... " << matched[0] << ',' << matched[1] << ',' << matched[2] << endl;
+      cout << "Long pattern matcher has " << matched[0] << ',' << matched[1] << ',' << matched[2] << '(' << mod << ')' << endl;
       Prediction r (matched[0], matched[1], matched[2]);
       return r;
     }
@@ -238,7 +221,7 @@ class MovingAverage {
     double avg;
   public:
     MovingAverage() {
-      avg = 0.05;
+      avg = 0.8;
     }
     void feed(double p) {
       avg *= 0.8;
@@ -248,7 +231,7 @@ class MovingAverage {
       return avg;
     }
     void swap() {
-      avg = - avg;
+      avg = 1 - avg;
     }
 };
 
@@ -263,15 +246,15 @@ int main() {
     
     Prediction aggregate (0,0,0);
     
-    ////cout << "-------------" << endl;
+    cout << "-------------" << endl;
 
     for (int i = 0; i < NUM_PREDICTORS; i += 1) {
       Prediction m = predictors[i]->predict();
       aggregate = aggregate + m.scaleTo(averages[i].average());
       
-      averages[i].feed(m[(p + 2) % 3] - m[(p + 1) % 3]);
+      averages[i].feed(m[p]);
       
-      //cout << i << '|' << averages[i].average() << endl;
+      cout << i << '|' << averages[i].average() << endl;
 
       if (averages[i].average() <= 0) {
         predictors[i]->shift(1);
@@ -280,10 +263,12 @@ int main() {
     }
 
     int g = aggregate.generate();
+
+    cout << "Aggregate is betting on " << aggregate[0] << ',' << aggregate[1] << ',' << aggregate[2] << endl;
     
     for (int i = 0; i < NUM_PREDICTORS; i += 1) predictors[i]->feed(p, g);
 
-    cout /*<< "------------" << endl*/ << (g == 0 ? 'R' : (g == 1 ? 'P' : 'S')) << endl << endl;
+    cout << "------------" << endl << (g == 0 ? 'R' : (g == 1 ? 'P' : 'S')) << endl << endl;
 
   }
   return 0;
