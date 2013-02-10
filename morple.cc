@@ -1,5 +1,6 @@
 #include <iostream>
 #include <cmath>
+#include <sstream>
 using namespace std;
 
 /*
@@ -31,6 +32,7 @@ class Prediction {
       t = rock + paper + scissors;
     }
     void shift(int n) {
+      if (n % 3 == 0) return;
       double temp[3];
       for (int i = 0; i < 3; i += 1) temp[i] = p[i];
       for (int i = 0; i < 3; i += 1) p[i] = temp[(n + i) % 3];
@@ -59,6 +61,13 @@ class Prediction {
       else {
         return ((double) p[n]) / t;
       }
+    }
+    
+    double* as_array() {
+      double* r = new double[3];
+      if (t > 0) for (int i = 0; i < 3; i += 1) r[i] = (double) p[i] / t;
+      else for (int i = 0; i < 3; i += 1) r[i] = 1.0/3.0;
+      return r;
     }
 
     int generate() {
@@ -235,20 +244,47 @@ class StaticPatternMatcher : public Predictor {
 
 class MovingAverage {
   private:
-    double avg;
+    double p[3]; //{win, tie, lose}
   public:
     MovingAverage() {
-      avg = 0.8;
+      p[0] = 0.8; //We start our predictors with some confidence
+      p[1] = 0.1;
+      p[2] = 0.1;
     }
-    void feed(double p) {
-      avg *= 0.8;
-      avg += 0.2*p;
+    void feed(double n[3], int m) {
+      for (int i = 0; i < 3; i += 1) {
+        p[i] *= 0.8;
+        p[i] += 0.2 * n[(m - i) % 3];
+      }
     }
-    double average() {
-      return avg;
+    double expectation() {
+      return p[0] - p[2];
     }
-    void swap() {
-      avg = 1 - avg;
+    string toString() {
+      stringstream s;
+      s << '(';
+      for (int i = 0; i < 3; i += 1) s << p[i] << (i<2?",":"");
+      s << ')';
+      return s.str();
+    }
+    int shift() {
+      if (p[0] - p[2] > p[1] - p[0] && p[0] - p[2] > p[2] - p[1]) {
+        return 0;
+      }
+      else if (p[1] - p[0] > p[2] - p[1]) {
+        double t = p[0];
+        p[0] = p[1];
+        p[1] = p[2];
+        p[2] = t;
+        return 1;
+      }
+      else {
+        double t = p[1];
+        p[0] = p[2];
+        p[1] = p[0];
+        p[2] = t;
+        return 2;
+      }
     }
 };
 
@@ -267,16 +303,13 @@ int main() {
 
     for (int i = 0; i < NUM_PREDICTORS; i += 1) {
       Prediction m = predictors[i]->predict();
-      aggregate = aggregate + m.scaleTo(averages[i].average());
+      aggregate = aggregate + m.scaleTo(averages[i].expectation());
       
-      averages[i].feed(m[p]);
+      averages[i].feed(m.as_array(), p);
       
-      cout << i << '|' << averages[i].average() << endl;
+      cout << i << '|' << ' ' << averages[i].toString() << ' ' << averages[i].expectation() << endl;
 
-      if (averages[i].average() <= 0.5) {
-        predictors[i]->shift(1);
-        averages[i].swap();
-      }
+      predictors[i]->shift(averages[i].shift());
     }
 
     int g = aggregate.generate();
