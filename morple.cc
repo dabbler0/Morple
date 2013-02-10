@@ -2,6 +2,23 @@
 #include <cmath>
 using namespace std;
 
+/*
+Morple
+
+A basic rock-paper-scissors AI.
+
+Morple has four predictors:
+
+1. A unigram counter, which just counts word frequencies,
+2. A Markov modeler, which constructs a Markov model on the opponent's history,
+3. Another Markov modeler, which constructs a Markov model on the combined history of us and the opponent,
+4. A large pattern search, which looks for repetitions of up to length 25, and predicts based on how many times the pattern was repeated and how long the pattern is.
+
+Morple makes these four predictions and weights them according to how accurate they have been in the past. If any predictor is less than 50% accurate, Morple begins to bet against it instead.
+
+Copyright (c) 2013 Anthony Bau.
+*/
+
 class Prediction {
   private:
     double p[3];
@@ -156,7 +173,7 @@ class DualMarkovCounter : public Predictor {
     }
 };
 
-//Picks according to a search for the last 0-10 moves in the opponents' last 1000 moves.
+//Picks according to a search for the last 0-25 moves in the opponents' last 900 moves.
 class StaticPatternHistory {
   private:
     int history[50];
@@ -256,7 +273,7 @@ int main() {
       
       cout << i << '|' << averages[i].average() << endl;
 
-      if (averages[i].average() <= 0) {
+      if (averages[i].average() <= 0.5) {
         predictors[i]->shift(1);
         averages[i].swap();
       }
