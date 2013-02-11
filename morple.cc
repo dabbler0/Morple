@@ -278,14 +278,14 @@ class MovingAverage {
     double p[3]; //{win, tie, lose}
   public:
     MovingAverage() {
-      p[0] = 0.8; //We start our predictors with some confidence
-      p[1] = 0.1;
-      p[2] = 0.1;
+      p[0] = 1; //We start our predictors with some confidence
+      p[1] = 0;
+      p[2] = 0;
     }
     void feed(double n[3], int m) {
       for (int i = 0; i < 3; i += 1) {
-        p[i] *= 0.8;
-        p[i] += 0.2 * n[(m - i) % 3];
+        p[i] *= 0.9;
+        p[i] += 0.1 * n[(m - i) % 3];
       }
     }
     double expectation() {
