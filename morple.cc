@@ -276,15 +276,17 @@ class SelfStaticPatternMatcher : public Predictor {
 class MovingAverage {
   private:
     double p[3]; //{win, tie, lose}
+    double ratio;
   public:
     MovingAverage() {
       p[0] = 1; //We start our predictors with some confidence
       p[1] = 0;
       p[2] = 0;
+      ratio = 0.9;
     }
     void feed(double n[3], int m) {
       for (int i = 0; i < 3; i += 1) {
-        p[i] *= 0.9;
+        p[i] *= ratio;
         p[i] += 0.1 * n[(m - i) % 3];
       }
     }
@@ -300,9 +302,11 @@ class MovingAverage {
     }
     int shift() {
       if (p[0] - p[2] > p[1] - p[0] && p[0] - p[2] > p[2] - p[1]) {
+        ratio = ratio * 0.9 + 0.81; //Our uncertainty in our predictors approaches 0.9 as they appear more reliable
         return 0;
       }
       else if (p[1] - p[0] > p[2] - p[1]) {
+        ratio *= 0.8; //Morple gets very uncertain when a predictor has to swap
         double t = p[0];
         p[0] = p[1];
         p[1] = p[2];
@@ -310,6 +314,7 @@ class MovingAverage {
         return 1;
       }
       else {
+        ratio *= 0.8;
         double t = p[1];
         p[0] = p[2];
         p[1] = p[0];
