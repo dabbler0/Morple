@@ -11,9 +11,9 @@ A basic rock-paper-scissors AI.
 Morple has six predictors:
 
 1. A unigram counter, which just counts word frequencies,
-2. Two Markov modeler, one which constructs a Markov model on the opponent's history and one which constructs a Markov model on our history
-3. A Markov modeler which constructs a Markov model on the combined history of us and the opponent,
-4. Two large pattern searches, which look for repetitions of up to length 25, and predicts based on how many times the pattern was repeated and how long the pattern is. They search in our history and the opponent's history, respectively.
+2,3. Two Markov modelers, one which constructs a Markov model on the opponent's history and one which constructs a Markov model on our history
+4. A Markov modeler which constructs a Markov model on the combined history of us and the opponent,
+5,6. Two large pattern searches, which look for repetitions of up to length 25, and predicts based on how many times the pattern was repeated and how long the pattern is. They search in our history and the opponent's history, respectively.
 
 Morple makes these four predictions and weights them according to how accurate they have been in the past. If any predictor is less than 50% accurate, Morple begins to bet against it instead.
 
