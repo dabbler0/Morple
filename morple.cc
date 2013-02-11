@@ -20,6 +20,8 @@ Morple makes these four predictions and weights them according to how accurate t
 Copyright (c) 2013 Anthony Bau.
 */
 
+bool DEBUG = true;
+
 class Prediction {
   private:
     double p[3];
@@ -110,7 +112,7 @@ class UnigramCounter : public Predictor {
       counts[n % 3] += 1;
     }
     Prediction raw_predict() {
-      cout << "Unigrams has " << counts[0] << ',' << counts[1] << ',' << counts[2] << '(' << mod << ')' << endl;
+      if (DEBUG) cout << "Unigrams has " << counts[0] << ',' << counts[1] << ',' << counts[2] << '(' << mod << ')' << endl;
       Prediction r (counts[0], counts[1], counts[2]);
       return r;
     }
@@ -123,26 +125,38 @@ class MarkovCounter : public Predictor {
     int last;
   public:
     MarkovCounter() {
-      for (int i = 0; i < 3; i += 1) {
-        for (int x = 0; x < 3; x += 1) {
-          counts[i][x] = 0;
-        }
-      }
+      for (int i = 0; i < 3; i += 1) for (int x = 0; x < 3; x += 1) counts[i][x] = 0; //Fill our count array with zeroes
       last = -1;
     }
     void feed(int n, int k) {
-      for (int i = 0; i < 3; i += 1) {
-        for (int x = 0; x < 3; x += 1) {
-          counts[i][x] *= 0.95;
-        }
-      }
-      if (last >= 0) {
-        counts[last][n] += 1;
-      }
-      last = n;
+      for (int i = 0; i < 3; i += 1) for (int x = 0; x < 3; x += 1) counts[i][x] *= 0.95; //We slowly forget about past events
+      if (last >= 0) counts[last][n] += 1; //Add one to the proper count
+      last = n; //Update last
     }
     Prediction raw_predict() {
-      cout << "For " << last << ", Markov has " << counts[last][0] << "," << counts[last][1] << "," << counts[last][2] << '(' << mod << ')' << endl;
+      if (DEBUG) cout << "For " << last << ", Markov has " << counts[last][0] << "," << counts[last][1] << "," << counts[last][2] << '(' << mod << ')' << endl;
+      Prediction r (counts[last][0], counts[last][1], counts[last][2]);
+      return r;
+    }
+};
+
+//Picks according to a Markov model on our own throws
+class SelfMarkovCounter : public Predictor {
+  private:
+    double counts[3][3];
+    int last;
+  public:
+    SelfMarkovCounter() {
+      for (int i = 0; i < 3; i += 1) for (int x = 0; x < 3; x += 1) counts[i][x] = 0; //Fill our count array with zeroes
+      last = -1;
+    }
+    void feed (int n, int k) {
+      for (int i = 0; i < 3; i += 1) for (int x = 0; x < 3; x += 1) counts[i][x] *= 0.95; //We slowly forget about past events
+      if (last >= 0) counts[last][n] += 1; //Add one to the proper count
+      last = k; //Update last
+    }
+    Prediction raw_predict() {
+      if (DEBUG) cout << "For " << last << ", Self-Markov has " << counts[last][0] << ',' << counts[last][1] << ',' << counts[last][2] << '(' << mod << ')';
       Prediction r (counts[last][0], counts[last][1], counts[last][2]);
       return r;
     }
@@ -155,28 +169,18 @@ class DualMarkovCounter : public Predictor {
     int last;
   public:
     DualMarkovCounter() {
-      for (int i = 0; i < 9; i += 1) {
-        for (int x = 0; x < 3; x += 1) {
-          counts[i][x] = 0;
-        }
-      }
+      for (int i = 0; i < 9; i += 1) for (int x = 0; x < 3; x += 1) counts[i][x] = 0; //Fill our count array with zeroes
       last = -1;
     }
     
     void feed(int n, int k) {
-      for (int i = 0; i < 9; i += 1) {
-        for (int x = 0; x < 3; x += 1) {
-          counts[i][x] *= 0.96;
-        }
-      }
-      if (last >= 0) {
-        counts[last][n] += 1;
-      }
-      last = 3*n + k;
+      for (int i = 0; i < 9; i += 1) for (int x = 0; x < 3; x += 1) counts[i][x] *= 0.96; //We slowly forget about past events
+      if (last >= 0) counts[last][n] += 1; //Add one to the appropriate count
+      last = 3*n + k; //Update last.
     }
 
     Prediction raw_predict() {
-      cout << "For " << last << ", Dual-Markov has " << counts[last][0] << "," << counts[last][1] << "," << counts[last][2] << '(' << mod << ')' << endl;
+      if (DEBUG) cout << "For " << last << ", Dual-Markov has " << counts[last][0] << "," << counts[last][1] << "," << counts[last][2] << '(' << mod << ')' << endl;
       Prediction r (counts[last][0], counts[last][1], counts[last][2]);
       return r;
     }
@@ -217,28 +221,55 @@ class StaticPatternHistory {
       return _length;
     }
 };
+
+//StaticPatternMatcher picks according to opponents' throws
 class StaticPatternMatcher : public Predictor {
   private:
-    StaticPatternHistory history; //Each integer can hold up to 20 moves
-    int mark;
+    StaticPatternHistory history;
   public:
     void feed(int n, int k) {
       history.push(n);
     }
     Prediction raw_predict () {
       int len = history.length();
-      int max_match = 0;
       int last = history[0];
       int matched[] = {0,0,0};
       for (int i = 1; i < len; i += 1) {
-        for (int x = 0; history[i + x] == history[x] && x < 25; x += 1) {
-          matched[last] += 1;  
-        }
-        last = history[i];
+        //Do the actual search
+        for (int x = 0; history[i + x] == history[x] && x < 25; x += 1) matched[last] += x; //Weight goes up as the square of the length
+        last = history[i]; //Update last
       }
-      cout << "Long pattern matcher has " << matched[0] << ',' << matched[1] << ',' << matched[2] << '(' << mod << ')' << endl;
+      if (DEBUG) cout << "Long pattern matcher has " << matched[0] << ',' << matched[1] << ',' << matched[2] << '(' << mod << ')' << endl;
       Prediction r (matched[0], matched[1], matched[2]);
       return r;
+    }
+};
+
+//SelfStaticPatternMatcher picks according to our throws
+class SelfStaticPatternMatcher : public Predictor {
+  private:
+    //TODO repeat memory; make access to a standard dual history.
+    StaticPatternHistory our_history;
+    StaticPatternHistory their_history;
+  public:
+    void feed (int n, int k) {
+      their_history.push(n);
+      our_history.push(k);
+    }
+    Prediction raw_predict () {
+      int len = our_history.length();
+      int last = their_history[0];
+      int matched[] = {0,0,0};
+      for (int i = 1; i < len; i += 1) {
+        //Do the actual search
+        for (int i = 0 ; i < len; i += 1) {
+          for (int x = 0; our_history[i + x] == our_history[x] && x < 25; x += 1) matched[last] += x; //Weight goes up as the square of the length
+          last = their_history[i]; //We mark the move that they made right after this pattern.
+        }
+        if (DEBUG) cout << "Self pattern matcher has " << matched[0] << ',' << matched[1] << ',' << matched[2] << '(' << mod << ')' << endl;
+        Prediction r (matched[0], matched[1], matched[2]);
+        return r;
+      }
     }
 };
 
@@ -289,36 +320,38 @@ class MovingAverage {
 };
 
 int main() {
-  int NUM_PREDICTORS = 4;
-  Predictor* predictors[] = {new UnigramCounter(), new MarkovCounter(), new DualMarkovCounter(), new StaticPatternMatcher()};
+  int NUM_PREDICTORS = 6;
+  int computer_score = 0;
+  Predictor* predictors[] = {new UnigramCounter(), new MarkovCounter(), new SelfMarkovCounter(), new DualMarkovCounter(), new StaticPatternMatcher(), new SelfStaticPatternMatcher};
   MovingAverage averages[NUM_PREDICTORS];
   char t;
   while (true) {
     cin >> t;
     int p = (t == 'R' ? 0 : (t == 'P' ? 1 : t == 'S' ? 2 : -1));
-    
-    Prediction aggregate (0,0,0);
-    
-    cout << "-------------" << endl;
-
+    Prediction aggregate (0,0,0); //Init our aggregate Prediction
+    if (DEBUG) cout << "-------------" << endl;
     for (int i = 0; i < NUM_PREDICTORS; i += 1) {
+      //Cycle through our predictors, ask each one for a prediction, and then judge it.
       Prediction m = predictors[i]->predict();
       aggregate = aggregate + m.scaleTo(averages[i].expectation());
-      
-      averages[i].feed(m.as_array(), p);
-      
-      cout << i << '|' << ' ' << averages[i].toString() << ' ' << averages[i].expectation() << endl;
-
-      predictors[i]->shift(averages[i].shift());
+      averages[i].feed(m.as_array(), p); //Feed their scores to their expectation counters.
+      if (DEBUG) cout << i << '|' << ' ' << averages[i].toString() << ' ' << averages[i].expectation() << endl;
+      predictors[i]->shift(averages[i].shift()); //If they are doing badly, bet against them.
     }
 
-    int g = aggregate.generate();
-
-    cout << "Aggregate is betting on " << aggregate[0] << ',' << aggregate[1] << ',' << aggregate[2] << endl;
+    if (DEBUG) cout << "Aggregate is betting on " << aggregate[0] << ',' << aggregate[1] << ',' << aggregate[2] << endl;
     
+    //Make our move
+    int g = aggregate.generate();
+   
+    //Update scores:
+    if ((g - p + 3) % 3 == 1) computer_score += 1;
+    else if ((g - p + 3) % 3 == 2) computer_score -= 1;
+    if (DEBUG) cout << "Score is now " << computer_score << endl;
+   
     for (int i = 0; i < NUM_PREDICTORS; i += 1) predictors[i]->feed(p, g);
 
-    cout << "------------" << endl << (g == 0 ? 'R' : (g == 1 ? 'P' : 'S')) << endl << endl;
+    if (DEBUG) cout << "------------" << endl << (g == 0 ? 'R' : (g == 1 ? 'P' : 'S')) << endl << endl;
 
   }
   return 0;
