@@ -327,8 +327,15 @@ class MovingAverage {
 int main() {
   int NUM_PREDICTORS = 6;
   int computer_score = 0;
+
+//Predictors and their respective judges:
   Predictor* predictors[] = {new UnigramCounter(), new MarkovCounter(), new SelfMarkovCounter(), new DualMarkovCounter(), new StaticPatternMatcher(), new SelfStaticPatternMatcher};
   MovingAverage averages[NUM_PREDICTORS];
+
+  //Aggregate prediction-related stuff:
+  MovingAverage aggregate_average;
+  int aggregate_shift = 0;
+
   char t;
   while (true) {
     cin >> t;
@@ -346,14 +353,21 @@ int main() {
 
     if (DEBUG) cout << "Aggregate is betting on " << aggregate[0] << ',' << aggregate[1] << ',' << aggregate[2] << endl;
     
+    aggregate.shift(aggregate_shift);
+
     //Make our move
     int g = aggregate.generate();
-   
+    
     //Update scores:
     if ((g - p + 3) % 3 == 1) computer_score += 1;
     else if ((g - p + 3) % 3 == 2) computer_score -= 1;
     if (DEBUG) cout << "Score is now " << computer_score << endl;
-   
+    
+    //Flip the aggregate counter if necessary.
+    aggregate_average.feed(aggregate.as_array());
+    aggregate_shift += aggregate_average.shift();
+    aggregate_shift %= 3;
+
     for (int i = 0; i < NUM_PREDICTORS; i += 1) predictors[i]->feed(p, g);
 
     if (DEBUG) cout << "------------" << endl << (g == 0 ? 'R' : (g == 1 ? 'P' : 'S')) << endl << endl;
