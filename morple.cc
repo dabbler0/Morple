@@ -20,7 +20,7 @@ Morple makes these predictions and weights them according to how accurate they h
 Copyright (c) 2013 Anthony Bau.
 */
 
-bool DEBUG = false;
+bool DEBUG = true;
 
 class Prediction {
   private:
@@ -285,9 +285,10 @@ class MovingAverage {
       ratio = 0.9;
     }
     void feed(double n[3], int m) {
+      cout << "Ratio is " << ratio << endl;
       for (int i = 0; i < 3; i += 1) {
         p[i] *= ratio;
-        p[i] += 0.5 * (1 - ratio) * n[(m - i) % 3];
+        p[i] += (1 - ratio) * n[(m - i) % 3];
       }
     }
     double expectation() {
@@ -302,7 +303,7 @@ class MovingAverage {
     }
     int shift() {
       if (p[0] - p[2] > p[1] - p[0] && p[0] - p[2] > p[2] - p[1]) {
-        ratio = ratio * 0.9 + 0.81; //Our uncertainty in our predictors approaches 0.9 as they appear more reliable
+        ratio = ratio * 0.9 + 0.09; //Our uncertainty in our predictors approaches 0.9 as they appear more reliable
         return 0;
       }
       else if (p[1] - p[0] > p[2] - p[1]) {
@@ -372,8 +373,8 @@ int main() {
     for (int i = 0; i < NUM_PREDICTORS; i += 1) predictors[i]->feed(p, g);
 
     if (DEBUG) cout << "------------" << endl << (g == 0 ? 'R' : (g == 1 ? 'P' : 'S')) << endl << endl;
-    //else cout << (g == 0 ? 'R' : (g == 1 ? 'P' : 'S')) << " (" << computer_score << ")" << endl << endl;
-    else cout << (g == 0 ? 'R' : (g == 1 ? 'P' : 'S'));
+    else cout << (g == 0 ? 'R' : (g == 1 ? 'P' : 'S')) << " (" << computer_score << ")" << endl << endl;
+    //else cout << (g == 0 ? 'R' : (g == 1 ? 'P' : 'S'));
   }
   return 0;
 }
