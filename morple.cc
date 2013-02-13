@@ -337,6 +337,7 @@ int main() {
   int aggregate_shift = 0;
 
   char t;
+  cout << 'P';
   while (true) {
     cin >> t;
     int p = (t == 'R' ? 0 : (t == 'P' ? 1 : t == 'S' ? 2 : -1));
@@ -371,8 +372,8 @@ int main() {
     for (int i = 0; i < NUM_PREDICTORS; i += 1) predictors[i]->feed(p, g);
 
     if (DEBUG) cout << "------------" << endl << (g == 0 ? 'R' : (g == 1 ? 'P' : 'S')) << endl << endl;
-    else cout << (g == 0 ? 'R' : (g == 1 ? 'P' : 'S')) << " (" << computer_score << ")" << endl << endl;
-
+    //else cout << (g == 0 ? 'R' : (g == 1 ? 'P' : 'S')) << " (" << computer_score << ")" << endl << endl;
+    else cout << (g == 0 ? 'R' : (g == 1 ? 'P' : 'S'));
   }
   return 0;
 }
