@@ -288,7 +288,7 @@ class MovingAverage {
       cout << "Ratio is " << ratio << endl;
       for (int i = 0; i < 3; i += 1) {
         p[i] *= ratio;
-        p[i] += (1 - ratio) * n[(m - i) % 3];
+        p[i] += (1 - ratio) * n[(m - i + 3) % 3];
       }
     }
     double expectation() {
