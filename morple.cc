@@ -287,7 +287,7 @@ class MovingAverage {
     void feed(double n[3], int m) {
       for (int i = 0; i < 3; i += 1) {
         p[i] *= ratio;
-        p[i] += 0.1 * n[(m - i) % 3];
+        p[i] += 0.5 * (1 - ratio) * n[(m - i) % 3];
       }
     }
     double expectation() {
@@ -365,7 +365,7 @@ int main() {
     if (DEBUG) cout << "Score is now " << computer_score << endl;
     
     //Flip the aggregate counter if necessary.
-    aggregate_average.feed(aggregate.as_array());
+    aggregate_average.feed(aggregate.as_array(), p);
     aggregate_shift += aggregate_average.shift();
     aggregate_shift %= 3;
 
