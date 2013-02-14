@@ -1,6 +1,7 @@
 #include <iostream>
 #include <cmath>
 #include <sstream>
+#include <fstream>
 using namespace std;
 
 /*
@@ -21,18 +22,23 @@ Copyright (c) 2013 Anthony Bau.
 */
 
 bool DEBUG = true;
+ofstream DEBUG_FILE ("morple.debug");
 
 class Prediction {
   private:
     double p[3];
     double t;
   public:
-    Prediction(double rock, double paper, double scissors) {
+    Prediction () {
+      p[0] = p[1] = p[2] = t = 0;
+    }
+    Prediction (double rock, double paper, double scissors) {
       p[0] = rock;
       p[1] = paper;
       p[2] = scissors;
       t = rock + paper + scissors;
     }
+
     void shift(int n) {
       if (n % 3 == 0) return;
       double temp[3];
@@ -43,6 +49,16 @@ class Prediction {
     Prediction operator+ (Prediction o) {
       Prediction r (p[0] + o.p[0], p[1] + o.p[1], p[2] + o.p[2]);
       return r;
+    }
+
+    void operator+= (Prediction o) {
+      for (int i = 0; i < 3; i += 1) p[i] += o.p[i];
+      t += o.t;
+    }
+
+    void operator= (Prediction o) {
+      for (int i = 0; i < 3; i += 1) p[i] = o.p[i];
+      t = o.t;
     }
     
     Prediction scaleTo (double n) {
@@ -112,7 +128,7 @@ class UnigramCounter : public Predictor {
       counts[n % 3] += 1;
     }
     Prediction raw_predict() {
-      if (DEBUG) cout << "Unigrams has " << counts[0] << ',' << counts[1] << ',' << counts[2] << '(' << mod << ')' << endl;
+      if (DEBUG) DEBUG_FILE << "Unigrams has " << counts[0] << ',' << counts[1] << ',' << counts[2] << '(' << mod << ')' << endl;
       Prediction r (counts[0], counts[1], counts[2]);
       return r;
     }
@@ -134,7 +150,7 @@ class MarkovCounter : public Predictor {
       last = n; //Update last
     }
     Prediction raw_predict() {
-      if (DEBUG) cout << "For " << last << ", Markov has " << counts[last][0] << "," << counts[last][1] << "," << counts[last][2] << '(' << mod << ')' << endl;
+      if (DEBUG) DEBUG_FILE << "For " << last << ", Markov has " << counts[last][0] << "," << counts[last][1] << "," << counts[last][2] << '(' << mod << ')' << endl;
       Prediction r (counts[last][0], counts[last][1], counts[last][2]);
       return r;
     }
@@ -156,7 +172,7 @@ class SelfMarkovCounter : public Predictor {
       last = k; //Update last
     }
     Prediction raw_predict() {
-      if (DEBUG) cout << "For " << last << ", Self-Markov has " << counts[last][0] << ',' << counts[last][1] << ',' << counts[last][2] << '(' << mod << ')';
+      if (DEBUG) DEBUG_FILE << "For " << last << ", Self-Markov has " << counts[last][0] << ',' << counts[last][1] << ',' << counts[last][2] << '(' << mod << ')';
       Prediction r (counts[last][0], counts[last][1], counts[last][2]);
       return r;
     }
@@ -180,7 +196,7 @@ class DualMarkovCounter : public Predictor {
     }
 
     Prediction raw_predict() {
-      if (DEBUG) cout << "For " << last << ", Dual-Markov has " << counts[last][0] << "," << counts[last][1] << "," << counts[last][2] << '(' << mod << ')' << endl;
+      if (DEBUG) DEBUG_FILE << "For " << last << ", Dual-Markov has " << counts[last][0] << "," << counts[last][1] << "," << counts[last][2] << '(' << mod << ')' << endl;
       Prediction r (counts[last][0], counts[last][1], counts[last][2]);
       return r;
     }
@@ -239,7 +255,7 @@ class StaticPatternMatcher : public Predictor {
         for (int x = 0; history[i + x] == history[x] && x < 25; x += 1) matched[last] += x; //Weight goes up as the square of the length
         last = history[i]; //Update last
       }
-      if (DEBUG) cout << "Long pattern matcher has " << matched[0] << ',' << matched[1] << ',' << matched[2] << '(' << mod << ')' << endl;
+      if (DEBUG) DEBUG_FILE << "Long pattern matcher has " << matched[0] << ',' << matched[1] << ',' << matched[2] << '(' << mod << ')' << endl;
       Prediction r (matched[0], matched[1], matched[2]);
       return r;
     }
@@ -266,7 +282,7 @@ class SelfStaticPatternMatcher : public Predictor {
           for (int x = 0; our_history[i + x] == our_history[x] && x < 25; x += 1) matched[last] += x; //Weight goes up as the square of the length
           last = their_history[i]; //We mark the move that they made right after this pattern.
         }
-        if (DEBUG) cout << "Self pattern matcher has " << matched[0] << ',' << matched[1] << ',' << matched[2] << '(' << mod << ')' << endl;
+        if (DEBUG) DEBUG_FILE << "Self pattern matcher has " << matched[0] << ',' << matched[1] << ',' << matched[2] << '(' << mod << ')' << endl;
         Prediction r (matched[0], matched[1], matched[2]);
         return r;
       }
@@ -284,8 +300,16 @@ class MovingAverage {
       p[2] = 0;
       ratio = 0.9;
     }
+
+    MovingAverage(double win, double tie, double lose) {
+      p[0] = win;
+      p[1] = tie;
+      p[2] = lose;
+      ratio = 0.9;
+    }
     void feed(double n[3], int m) {
-      cout << "Ratio is " << ratio << endl;
+      if (DEBUG) DEBUG_FILE << "Ratio is " << ratio << endl;
+      if (DEBUG) DEBUG_FILE << "Input sum is" << n[0] + n[1] + n[2] << endl;
       for (int i = 0; i < 3; i += 1) {
         p[i] *= ratio;
         p[i] += (1 - ratio) * n[(m - i + 3) % 3];
@@ -296,9 +320,9 @@ class MovingAverage {
     }
     string toString() {
       stringstream s;
-      s << '(';
-      for (int i = 0; i < 3; i += 1) s << p[i] << (i<2?",":"");
-      s << ')';
+      s << '[';
+      for (int i = 0; i < 3; i += 1) s << p[i] << (i < 2? "," : "");
+      s << ']';
       return s.str();
     }
     int shift() {
@@ -325,6 +349,16 @@ class MovingAverage {
     }
 };
 
+string stringify(int n, double* a) {
+  stringstream s;
+  s << '[';
+  for (int i = 0; i < n - 1; i += 1) {
+    s << a[i] << ',';
+  }
+  s << a[n - 1] << ']';
+  return s.str();
+}
+
 int main() {
   int NUM_PREDICTORS = 6;
   int computer_score = 0;
@@ -337,44 +371,47 @@ int main() {
   MovingAverage aggregate_average;
   int aggregate_shift = 0;
 
-  char t;
-  cout << 'P';
+  //Last moves:
+  int p;
+  int g;
+
   while (true) {
-    cin >> t;
-    int p = (t == 'R' ? 0 : (t == 'P' ? 1 : t == 'S' ? 2 : -1));
-    Prediction aggregate (0,0,0); //Init our aggregate Prediction
-    if (DEBUG) cout << "-------------" << endl;
+    Prediction predictions[NUM_PREDICTORS];
+    Prediction aggregate (0,0,0);
+    if (DEBUG) DEBUG_FILE << "----------" << endl;
     for (int i = 0; i < NUM_PREDICTORS; i += 1) {
-      //Cycle through our predictors, ask each one for a prediction, and then judge it.
-      Prediction m = predictors[i]->predict();
-      aggregate = aggregate + m.scaleTo(averages[i].expectation());
-      averages[i].feed(m.as_array(), p); //Feed their scores to their expectation counters.
-      if (DEBUG) cout << i << '|' << ' ' << averages[i].toString() << ' ' << averages[i].expectation() << endl;
-      predictors[i]->shift(averages[i].shift()); //If they are doing badly, bet against them.
+      //Get predictions:
+      predictions[i] = predictors[i]->predict();
+      aggregate += predictions[i].scaleTo(averages[i].expectation());
     }
-
-    if (DEBUG) cout << "Aggregate is betting on " << aggregate[0] << ',' << aggregate[1] << ',' << aggregate[2] << endl;
-    
     aggregate.shift(aggregate_shift);
-
-    //Make our move
-    int g = aggregate.generate();
-    
-    //Update scores:
-    if ((g - p + 3) % 3 == 1) computer_score += 1;
-    else if ((g - p + 3) % 3 == 2) computer_score -= 1;
-    if (DEBUG) cout << "Score is now " << computer_score << endl;
-    
-    //Flip the aggregate counter if necessary.
+    if (DEBUG) DEBUG_FILE << stringify(3, aggregate.as_array()) << endl;
+    if (DEBUG) DEBUG_FILE << aggregate_average.toString() << endl;
+    if (aggregate_average.expectation() > 0.1) {
+      if (DEBUG) DEBUG_FILE << "I am confident. (" << aggregate_average.expectation() << ')' << endl;
+      g = aggregate.generate();
+    }
+    else {
+      if (DEBUG) DEBUG_FILE << "I am inconfident, and played randomly. (" << aggregate_average.expectation() << ')' << endl;
+      g = rand() % 3;
+    }
+    if (DEBUG) DEBUG_FILE << "----------" << endl;
+    cout << (g == 0 ? 'R' : (g == 1 ? 'P' : 'S'));
+    char t;
+    cin >> t;
+    p = (t == 'R' ? 0 : (t == 'P' ? 1 : 2));
+    for (int i = 0; i < NUM_PREDICTORS; i += 1) {
+      //Feed everyone
+      averages[i].feed(predictions[i].as_array(), p);
+      predictors[i]->feed(p, g);
+      //Shift if necessary
+      predictors[i]->shift(averages[i].shift());
+    }
+    //Feed the aggregate average
     aggregate_average.feed(aggregate.as_array(), p);
+    //Shift if necessary
     aggregate_shift += aggregate_average.shift();
     aggregate_shift %= 3;
-
-    for (int i = 0; i < NUM_PREDICTORS; i += 1) predictors[i]->feed(p, g);
-
-    if (DEBUG) cout << "------------" << endl << (g == 0 ? 'R' : (g == 1 ? 'P' : 'S')) << endl << endl;
-    //else cout << (g == 0 ? 'R' : (g == 1 ? 'P' : 'S')) << " (" << computer_score << ")" << endl << endl;
-    else cout << (g == 0 ? 'R' : (g == 1 ? 'P' : 'S'));
   }
   return 0;
 }
