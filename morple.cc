@@ -289,6 +289,16 @@ class SelfStaticPatternMatcher : public Predictor {
     }
 };
 
+string stringify(int n, double* a) {
+  stringstream s;
+  s << '[';
+  for (int i = 0; i < n - 1; i += 1) {
+    s << a[i] << ',';
+  }
+  s << a[n - 1] << ']';
+  return s.str();
+}
+
 class MovingAverage {
   private:
     double p[3]; //{win, tie, lose}
@@ -308,12 +318,12 @@ class MovingAverage {
       ratio = 0.9;
     }
     void feed(double n[3], int m) {
-      if (DEBUG) DEBUG_FILE << "Ratio is " << ratio << endl;
-      if (DEBUG) DEBUG_FILE << "Input sum is" << n[0] + n[1] + n[2] << endl;
       for (int i = 0; i < 3; i += 1) {
         p[i] *= ratio;
         p[i] += (1 - ratio) * n[(m - i + 3) % 3];
+        if (DEBUG) DEBUG_FILE << p[i] << ' ';
       }
+      if (DEBUG) DEBUG_FILE << endl;
     }
     double expectation() {
       return p[0] - p[2];
@@ -331,33 +341,28 @@ class MovingAverage {
         return 0;
       }
       else if (p[1] - p[0] > p[2] - p[1]) {
+        if (DEBUG) DEBUG_FILE << "Going to flip (1). Array is " << stringify(3, p) << endl;
         ratio *= 0.8; //Morple gets very uncertain when a predictor has to swap
         double t = p[0];
         p[0] = p[1];
         p[1] = p[2];
         p[2] = t;
-        return 1;
+        if (DEBUG) DEBUG_FILE << "Flipped. New array is " << stringify(3, p) << endl;
+        return 2;
       }
       else {
+        if (DEBUG) DEBUG_FILE << "Going to flip (2). Array is " << stringify(3, p) << endl;
         ratio *= 0.8;
-        double t = p[1];
-        p[0] = p[2];
+        double t = p[2];
+        p[2] = p[1];
         p[1] = p[0];
-        p[2] = t;
-        return 2;
+        p[0] = t;
+        if (DEBUG) DEBUG_FILE << "Flipped. New array is " << stringify(3, p) << endl;
+        return 1;
       }
     }
 };
 
-string stringify(int n, double* a) {
-  stringstream s;
-  s << '[';
-  for (int i = 0; i < n - 1; i += 1) {
-    s << a[i] << ',';
-  }
-  s << a[n - 1] << ']';
-  return s.str();
-}
 
 int main() {
   int NUM_PREDICTORS = 6;
@@ -368,7 +373,7 @@ int main() {
   MovingAverage averages[NUM_PREDICTORS];
 
   //Aggregate prediction-related stuff:
-  MovingAverage aggregate_average;
+  MovingAverage aggregate_average (1.0/3.0,1.0/3.0,1.0/3.0);
   int aggregate_shift = 0;
 
   //Last moves:
@@ -387,7 +392,7 @@ int main() {
     aggregate.shift(aggregate_shift);
     if (DEBUG) DEBUG_FILE << stringify(3, aggregate.as_array()) << endl;
     if (DEBUG) DEBUG_FILE << aggregate_average.toString() << endl;
-    if (aggregate_average.expectation() > 0.1) {
+    if (aggregate_average.expectation() > 0.15) {
       if (DEBUG) DEBUG_FILE << "I am confident. (" << aggregate_average.expectation() << ')' << endl;
       g = aggregate.generate();
     }
