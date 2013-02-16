@@ -12,7 +12,7 @@ A basic rock-paper-scissors AI.
 Copyright (c) 2013 Anthony Bau.
 */
 
-bool DEBUG = true;
+bool DEBUG = false;
 ofstream DEBUG_FILE ("morple.debug");
 
 class Prediction {
@@ -216,8 +216,8 @@ class StaticPatternHistory {
         history[mark] += n;
         _length += 1;
         if (_length % 18 == 0) {
+          if (_length == 900) _length -= 18;
           mark += 1;
-          if (mark > 50) _length -= 18;
           mark %= 50;
           history[mark] = 0;
         }
@@ -371,16 +371,22 @@ int main() {
   int p;
   int g;
 
+  int games = 0;
   while (true) {
+    DEBUG_FILE << "Beginning game " << games << endl;
     Prediction predictions[NUM_PREDICTORS];
     Prediction aggregate (0,0,0);
     if (DEBUG) DEBUG_FILE << "----------" << endl;
+    DEBUG_FILE << "Predicting: " << endl;
     for (int i = 0; i < NUM_PREDICTORS; i += 1) {
+      DEBUG_FILE << i << ' ';
       //Get predictions:
       predictions[i] = predictors[i]->predict();
       aggregate += predictions[i].scaleTo(averages[i].expectation());
     }
+    DEBUG_FILE << endl;
     aggregate.shift(aggregate_shift);
+    DEBUG_FILE << "Got predictions for game " << games << endl;
     if (DEBUG) DEBUG_FILE << stringify(3, aggregate.as_array()) << endl;
     if (DEBUG) DEBUG_FILE << aggregate_average.toString() << endl;
     if (aggregate_average.expectation() > 0.15) {
@@ -392,6 +398,7 @@ int main() {
       g = rand() % 3;
     }
     if (DEBUG) DEBUG_FILE << "----------" << endl;
+    DEBUG_FILE << "Ready to play game " << games << ". Going to play " << (g == 0 ? 'R' : (g == 1 ? 'P' : 'S')) << endl;
     cout << (g == 0 ? 'R' : (g == 1 ? 'P' : 'S'));
     char t;
     cin >> t;
@@ -408,6 +415,8 @@ int main() {
     //Shift if necessary
     aggregate_shift += aggregate_average.shift();
     aggregate_shift %= 3;
+    games += 1;
+    DEBUG_FILE << "Ready to begin game " << games << endl;
   }
   return 0;
 }
