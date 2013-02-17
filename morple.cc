@@ -206,7 +206,7 @@ class StaticPatternHistory {
     }
 
     int operator[] (int n) {
-      return (history[(mark + 50 - (n / 18)) % 50] % ((int) pow(3,n % 18 + 1))) / pow(3,n % 18);
+      return (history[(mark + 50 - (n / 18)) % 50] % ((int) pow(3.0,n % 18 + 1))) / (int) pow(3.0,n % 18);
     }
 
     void push(int n) {
